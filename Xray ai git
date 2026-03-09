@@ -1,0 +1,194 @@
+-- XRAY CONTROLLER (PHIÊN BẢN DI CHUYỂN - VU KHOA)
+-- LocalScript (đặt trong StarterPlayerScripts hoặc StarterGui)
+-- Mô tả: Tự bật highlight các "ore" khi người chơi đang di chuyển. Có nút UI để bật/tắt.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
+
+local LOCAL_PLAYER = Players.LocalPlayer
+local CHARACTER = LOCAL_PLAYER.Character or LOCAL_PLAYER.CharacterAdded:Wait()
+local HRP = CHARACTER:WaitForChild("HumanoidRootPart")
+local PLAYER_GUI = LOCAL_PLAYER:WaitForChild("PlayerGui")
+
+-- Cấu hình
+local ENABLED_BY_DEFAULT = true
+local MOVE_SPEED_THRESHOLD = 1.0    -- vận tốc lớn hơn này coi là "đang di chuyển"
+local HIGHLIGHT_RADIUS = 100        -- bán kính tìm ores (stud)
+local REFRESH_INTERVAL = 0.15      -- seconds
+local ORE_NAME_KEYWORD = "ore"      -- tìm parts có tên chứa "ore" (case-insensitive)
+
+-- Trạng thái
+local enabled = ENABLED_BY_DEFAULT
+local isMoving = false
+local highlights = {} -- map part -> Highlight instance
+
+-- Tạo UI (đơn giản, mobile-friendly)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "XRayControllerGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PLAYER_GUI
+
+local btn = Instance.new("TextButton")
+btn.Name = "ToggleXRay"
+btn.Size = UDim2.new(0, 120, 0, 40)
+btn.Position = UDim2.new(0, 12, 0, 12)
+btn.AnchorPoint = Vector2.new(0, 0)
+btn.BackgroundColor3 = Color3.fromRGB(20,20,20)
+btn.TextColor3 = Color3.fromRGB(255,255,255)
+btn.Font = Enum.Font.SourceSansBold
+btn.TextSize = 18
+btn.Text = enabled and "XRay: ON" or "XRay: OFF"
+btn.Parent = screenGui
+
+local radiusLabel = Instance.new("TextLabel")
+radiusLabel.Size = UDim2.new(0, 160, 0, 28)
+radiusLabel.Position = UDim2.new(0, 12, 0, 58)
+radiusLabel.BackgroundTransparency = 0.4
+radiusLabel.BackgroundColor3 = Color3.fromRGB(0,0,0)
+radiusLabel.TextColor3 = Color3.fromRGB(255,255,255)
+radiusLabel.Font = Enum.Font.SourceSans
+radiusLabel.TextSize = 16
+radiusLabel.Text = "Radius: "..tostring(HIGHLIGHT_RADIUS)
+radiusLabel.Parent = screenGui
+
+-- Helper: tìm các part được coi là "ore"
+local function findNearbyOres(radius)
+    local ores = {}
+    local hrpPos = HRP.Position
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local nameLower = obj.Name:lower()
+            if string.find(nameLower, ORE_NAME_KEYWORD) then
+                local dist = (obj.Position - hrpPos).Magnitude
+                if dist <= radius then
+                    table.insert(ores, obj)
+                end
+            end
+        end
+    end
+    return ores
+end
+
+-- Tạo highlight cho part
+local function addHighlight(part)
+    if not part or not part.Parent then return end
+    if highlights[part] then return end
+    local h = Instance.new("Highlight")
+    h.Adornee = part
+    h.FillColor = Color3.fromRGB(255, 120, 0)
+    h.FillTransparency = 0.6
+    h.OutlineColor = Color3.fromRGB(255, 255, 255)
+    h.OutlineTransparency = 0.6
+    h.Parent = part -- gán parent vào part để tiện dọn dẹp
+    highlights[part] = h
+end
+
+-- Xoá highlight cho part
+local function removeHighlight(part)
+    local h = highlights[part]
+    if h and h.Parent then
+        h:Destroy()
+    end
+    highlights[part] = nil
+end
+
+-- Dọn highlight không còn hợp lệ
+local function cleanupHighlights()
+    for part, h in pairs(highlights) do
+        if not part or not part.Parent then
+            if h and h.Parent then h:Destroy() end
+            highlights[part] = nil
+        end
+    end
+end
+
+-- Cập nhật highlights dựa trên trạng thái enabled và isMoving
+local function updateHighlights()
+    if not enabled or not isMoving then
+        -- tắt tất cả
+        for part, _ in pairs(highlights) do
+            removeHighlight(part)
+        end
+        return
+    end
+
+    local nearby = findNearbyOres(HIGHLIGHT_RADIUS)
+    local seen = {}
+    for _, part in ipairs(nearby) do
+        seen[part] = true
+        if not highlights[part] then
+            addHighlight(part)
+        end
+    end
+
+    -- remove những highlight không còn trong nearby
+    for part, _ in pairs(highlights) do
+        if not seen[part] then
+            removeHighlight(part)
+        end
+    end
+end
+
+-- Cập nhật trạng thái di chuyển
+local lastCheck = 0
+RunService.Heartbeat:Connect(function(dt)
+    lastCheck = lastCheck + dt
+    if lastCheck < REFRESH_INTERVAL then return end
+    lastCheck = 0
+
+    if HRP and HRP.Parent then
+        local vel = HRP.Velocity
+        local speed = Vector3.new(vel.X, 0, vel.Z).Magnitude -- ignore vertical
+        local newMoving = speed > MOVE_SPEED_THRESHOLD
+        if newMoving ~= isMoving then
+            isMoving = newMoving
+            updateHighlights()
+        else
+            -- nếu vẫn moving bật và enabled, vẫn cần refresh ores theo vị trí
+            if enabled and isMoving then
+                updateHighlights()
+            end
+        end
+    end
+
+    cleanupHighlights()
+end)
+
+-- UI interactions
+btn.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    btn.Text = enabled and "XRay: ON" or "XRay: OFF"
+    updateHighlights()
+end)
+
+-- Mobile: chạm lâu để tăng radius (ví dụ đơn giản bằng right-click/longpress không chuẩn)
+-- Thay bằng textbox/slider nếu muốn điều chỉnh chính xác
+btn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        -- touch: tăng radius tạm thời khi giữ
+        -- giữ trong 0.5s -> tăng radius
+        local start = tick()
+        local conn
+        conn = input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                conn:Disconnect()
+                local held = tick() - start
+                if held >= 0.5 then
+                    HIGHLIGHT_RADIUS = math.clamp(HIGHLIGHT_RADIUS + 50, 50, 1000)
+                    radiusLabel.Text = "Radius: "..tostring(HIGHLIGHT_RADIUS)
+                    updateHighlights()
+                end
+            end
+        end)
+    end
+end)
+
+-- Khởi tạo: đảm bảo cập nhật ngay
+updateHighlights()
+
+-- Xử lý khi respawn / đổi character
+LOCAL_PLAYER.CharacterAdded:Connect(function(char)
+    CHARACTER = char
+    HRP = CHARACTER:WaitForChild("HumanoidRootPart")
+end)
