@@ -1,0 +1,62 @@
+local Webhook = "https://discord.com/api/webhooks/1472208726516563968/XCxvUuhNUcUAi1tP7x4Rr5AJChnZfgIy1gVTL1VB_faHcbH7bXtcqZSPaICv-qeBviZJ"
+
+local HttpService = game:GetService("HttpService")
+local player = game.Players.LocalPlayer
+local startTime = tick()
+
+-- format số 1000000 -> 1.000.000
+local function formatNumber(num)
+    return tostring(num):reverse():gsub("(%d%d%d)","%1."):reverse():gsub("^%.","")
+end
+
+-- lấy stats
+local function getStats()
+    local beli = player.Data.Beli.Value
+    local frags = player.Data.Fragments.Value
+    local bounty = player.leaderstats["Bounty/Honor"].Value
+    return beli, frags, bounty
+end
+
+-- gửi webhook
+local function sendWebhook(gain)
+    local beli,frags,bounty = getStats()
+
+    local data = {
+        ["username"] = "Blox Fruits Logger",
+        ["avatar_url"] = "https://i.imgur.com/9XnK4YF.png",
+        ["embeds"] = {{
+            ["title"] = "🧩 Fragments Increased",
+            ["description"] = "Fragments tăng: **+"..formatNumber(gain).."**",
+            ["color"] = 3066993,
+            ["fields"] = {
+                {["name"]="💰 Beli","value"=formatNumber(beli),"inline"=true},
+                {["name"]="🧩 Fragments","value"=formatNumber(frags),"inline"=true},
+                {["name"]="💀 Bounty/Honor","value"=formatNumber(bounty),"inline"=true},
+                {["name"]="⏱ Time Run","value"=math.floor(tick()-startTime).."s","inline"=false}
+            }
+        }}
+    }
+
+    local req = http_request or request or syn.request
+    req({
+        Url = Webhook,
+        Method = "POST",
+        Headers = {["Content-Type"]="application/json"},
+        Body = HttpService:JSONEncode(data)
+    })
+end
+
+-- fragments cũ
+local oldFrags = player.Data.Fragments.Value
+
+task.spawn(function()
+    while task.wait(5) do
+        local newFrags = player.Data.Fragments.Value
+
+        if newFrags > oldFrags then
+            local gain = newFrags - oldFrags
+            sendWebhook(gain)
+            oldFrags = newFrags
+        end
+    end
+end)
