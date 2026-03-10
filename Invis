@@ -1,0 +1,35 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+local function ToggleInvisibility(state)
+    local transparency = state and 1 or 0
+    
+    -- Duyệt qua tất cả các bộ phận để làm trong suốt
+    for _, v in pairs(character:GetDescendants()) do
+        if v:IsA("BasePart") or v:IsA("Decal") then
+            -- Giữ HumanoidRootPart để không bị lỗi di chuyển/vật lý
+            if v.Name ~= "HumanoidRootPart" then
+                v.Transparency = transparency
+            end
+        elseif v:IsA("Accessory") then
+            local handle = v:FindFirstChild("Handle")
+            if handle then
+                handle.Transparency = transparency
+            end
+        end
+    end
+    
+    -- Ẩn tên nhân vật (BillboardGui thường dùng cho tên/máu)
+    if character:FindFirstChild("Head") then
+        local nameTag = character.Head:FindFirstChildOfClass("BillboardGui")
+        if nameTag then
+            nameTag.Enabled = not state
+        end
+    end
+end
+
+-- Kích hoạt tàng hình
+ToggleInvisibility(true)
+print("Đã tàng hình - Bạn vẫn có thể tấn công!")
+
+-- Lưu ý: Nếu bạn hồi sinh (Reset), bạn cần chạy lại script này.
