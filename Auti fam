@@ -1,0 +1,103 @@
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("VuKhoa V32 Pro - Haunted Castle", "Midnight")
+
+-- [[ SETTINGS ]] --
+_G.AutoFarmBone = false
+_G.BringMob = false
+_G.AutoClick = false
+_G.FastAttack = false
+
+-- [[ TABS ]] --
+local Main = Window:NewTab("Auto Farm")
+local FarmSection = Main:NewSection("Farm Bone (Sea 3)")
+
+-- [[ FUNCTIONS ]] --
+function GetQuest()
+    local args = {[1] = "StartQuest", [2] = "HauntedQuest1", [3] = 1}
+    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer(unpack(args))
+end
+
+-- [[ UI ELEMENTS ]] --
+
+FarmSection:NewToggle("Auto Farm Bone", "Tự động nhận quest và đánh quái", function(state)
+    _G.AutoFarmBone = state
+end)
+
+FarmSection:NewToggle("Bring Mob (100% Hit)", "Gom quái sát mặt cực gần", function(state)
+    _G.BringMob = state
+end)
+
+FarmSection:NewToggle("Auto Click & Fast Attack", "Tự động vung kiếm liên tục", function(state)
+    _G.AutoClick = state
+    _G.FastAttack = state
+end)
+
+local Misc = Window:NewTab("Misc")
+local MiscSection = Misc:NewSection("Utilities")
+
+MiscSection:NewButton("Reset Character", "Tự tử để về spawn", function()
+    game.Players.LocalPlayer.Character:BreakJoints()
+end)
+
+MiscSection:NewKeybind("Ẩn/Hiện UI", "Bấm nút để đóng menu", Enum.KeyCode.RightControl, function()
+	Library:ToggleUI()
+end)
+
+-- [[ LOGIC CHÍNH ]] --
+
+task.spawn(function()
+    while task.wait() do
+        if _G.AutoFarmBone then
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                local character = player.Character
+                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                
+                if not player.PlayerGui.Main.Quest.Visible then
+                    -- Bay về nhận Quest
+                    character.HumanoidRootPart.CFrame = CFrame.new(-9515, 164, 5786)
+                    task.wait(0.5)
+                    GetQuest()
+                else
+                    -- Đi tìm quái Reborn Skeleton
+                    for _, v in pairs(workspace.Enemies:GetChildren()) do
+                        if v.Name == "Reborn Skeleton" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                            local mobHRP = v.HumanoidRootPart
+                            
+                            -- Giữ khoảng cách an toàn (trên đầu quái)
+                            character.HumanoidRootPart.CFrame = mobHRP.CFrame * CFrame.new(0, 8, 0)
+                            
+                            -- Bring Mob sát mặt
+                            if _G.BringMob then
+                                for _, m in pairs(workspace.Enemies:GetChildren()) do
+                                    if m.Name == "Reborn Skeleton" and m:FindFirstChild("HumanoidRootPart") then
+                                        m.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame * CFrame.new(0, -5, -3)
+                                        m.HumanoidRootPart.CanCollide = false
+                                        m.HumanoidRootPart.Size = Vector3.new(20, 20, 20)
+                                        m.Humanoid.PlatformStand = true
+                                    end
+                                end
+                            end
+                            break
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- LOGIC AUTO CLICK
+task.spawn(function()
+    while task.wait(0.1) do
+        if _G.AutoClick and _G.AutoFarmBone then
+            local VirtualUser = game:GetService("VirtualUser")
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton1(Vector2.new(0,0))
+            
+            if _G.FastAttack then
+                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("WeaponAttack")
+            end
+        end
+    end
+end)
