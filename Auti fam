@@ -1,112 +1,102 @@
+-- [[ VUKHOA V32 PRO - STABLE FARM ]] --
+
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("VuKhoa V32 Pro - Haunted Castle", "Midnight")
+-- Midnight theme, Menu có thể nắm kéo đầu trang để di chuyển
+local Window = Library.CreateLib("VuKhoa V32 - Stable Farm", "Midnight")
 
 -- [[ SETTINGS ]] --
-_G.AutoFarmBone = false
+_G.AutoFarm = false
 _G.BringMob = false
 _G.AutoClick = false
-_G.FastAttack = false
+_G.Distance = 9 -- Khoảng cách trên đầu quái (Số vàng để không bị văng)
 
 -- [[ TABS ]] --
-local Main = Window:NewTab("Auto Farm")
-local FarmSection = Main:NewSection("Farm Bone (Sea 3)")
+local Main = Window:NewTab("Main Farm")
+local Section = Main:NewSection("Haunted Castle (Bone)")
 
--- [[ FUNCTIONS ]] --
-function GetQuest()
-    local args = {[1] = "StartQuest", [2] = "HauntedQuest1", [3] = 1}
-    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer(unpack(args))
-end
+-- [[ TOGGLES ]] --
 
--- [[ UI ELEMENTS ]] --
-FarmSection:NewToggle("Auto Farm Bone", "Tự động bay về đảo và farm", function(state)
-    _G.AutoFarmBone = state
+Section:NewToggle("Auto Farm Bone", "Tele trên đầu quái & Không văng", function(state)
+    _G.AutoFarm = state
+    -- Khóa Camera khi farm để không bị rối
+    if state then
+        workspace.CurrentCamera.CameraSubject = game.Players.LocalPlayer.Character.Humanoid
+    end
 end)
 
-FarmSection:NewToggle("Bring Mob (Safe Mode)", "Gom quái thông minh (Chống chết)", function(state)
+Section:NewToggle("Smart Bring", "Gom quái không lag camera", function(state)
     _G.BringMob = state
 end)
 
-FarmSection:NewToggle("Auto Click & Fast Attack", "Tự động vung kiếm", function(state)
+Section:NewToggle("Auto Click", "Tự động đánh", function(state)
     _G.AutoClick = state
-    _G.FastAttack = state
 end)
 
-local Misc = Window:NewTab("Misc")
-local MiscSection = Misc:NewSection("Utilities")
-MiscSection:NewButton("Reset Character", "Tự tử", function()
-    game.Players.LocalPlayer.Character:BreakJoints()
-end)
+-- [[ LOGIC XỬ LÝ CHÍNH ]] --
 
--- [[ LOGIC CHÍNH ]] --
 task.spawn(function()
     while task.wait() do
-        if _G.AutoFarmBone then
+        if _G.AutoFarm then
             pcall(function()
-                local player = game.Players.LocalPlayer
-                local character = player.Character
-                if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                local lp = game.Players.LocalPlayer
+                local char = lp.Character
+                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+                local hrp = char.HumanoidRootPart
                 
-                local hrp = character.HumanoidRootPart
-                local questPos = CFrame.new(-9515, 164, 5786) -- Tọa độ NPC Quest
-                
-                -- 1. Nếu chưa có nhiệm vụ: Bay về NPC nhận Quest
-                if not player.PlayerGui.Main.Quest.Visible then
-                    if (hrp.Position - questPos.Position).Magnitude > 50 then
-                        hrp.CFrame = questPos -- Teleport thẳng về NPC
-                    end
-                    task.wait(0.5)
-                    GetQuest()
+                -- Ngăn nhân vật bị rơi hoặc văng do vật lý
+                if not hrp:FindFirstChild("VuKhoa_Velocity_Fix") then
+                    local bv = Instance.new("BodyVelocity")
+                    bv.Name = "VuKhoa_Velocity_Fix"
+                    bv.Velocity = Vector3.new(0, 0, 0)
+                    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                    bv.Parent = hrp
+                end
+
+                -- Kiểm tra Quest
+                if not lp.PlayerGui.Main.Quest.Visible then
+                    hrp.CFrame = CFrame.new(-9515, 164, 5786) -- NPC Bone
+                    task.wait(0.3)
+                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", "HauntedQuest1", 1)
                 else
-                    -- 2. Đã có nhiệm vụ: Tìm quái Skeleton
-                    local foundMob = false
+                    -- Tìm quái
                     for _, v in pairs(workspace.Enemies:GetChildren()) do
                         if v.Name == "Reborn Skeleton" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                            foundMob = true
-                            local mobHRP = v.HumanoidRootPart
+                            -- GIỮ CAMERA ỔN ĐỊNH: Không cho Camera xoay theo quái
+                            workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, hrp.Position)
                             
-                            -- Khoảng cách an toàn dựa trên việc có đang đánh hay không
-                            -- Nếu đang đánh: Hút lại 5 studs. Nếu không đánh: Đẩy ra 15 studs
-                            local dist = (_G.AutoClick or _G.FastAttack) and 5 or 15
+                            -- Đứng trên đầu quái 9 studs (Khoảng cách an toàn nhất Sea 3)
+                            hrp.CFrame = v.HumanoidRootPart.CFrame * CFrame.new(0, _G.Distance, 0) * CFrame.Angles(math.rad(-90), 0, 0)
                             
-                            -- Nhân vật lơ lửng trên đầu quái để ổn định
-                            hrp.CFrame = mobHRP.CFrame * CFrame.new(0, 10, 0)
-                            
-                            -- Gom quái (Bring Mob) theo kiểu dìm xuống đất và ngửa mặt
+                            -- Bring Mob
                             if _G.BringMob then
                                 for _, m in pairs(workspace.Enemies:GetChildren()) do
                                     if m.Name == "Reborn Skeleton" and m:FindFirstChild("HumanoidRootPart") then
+                                        m.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0, -_G.Distance - 2, 0)
                                         m.HumanoidRootPart.CanCollide = false
                                         m.Humanoid.PlatformStand = true
-                                        -- Đưa quái về trước mặt, dìm xuống đất, ngửa mặt lên trời
-                                        m.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0, -14, -dist) * CFrame.Angles(math.rad(90), 0, 0)
-                                        m.HumanoidRootPart.Size = Vector3.new(20, 20, 20)
                                     end
                                 end
                             end
                             break
                         end
                     end
-                    
-                    -- Nếu không thấy quái ở gần, bay về bãi quái trung tâm
-                    if not foundMob then
-                        hrp.CFrame = CFrame.new(-9500, 170, 6000) 
-                    end
                 end
             end)
+        else
+            -- Xóa BodyVelocity khi tắt farm để di chuyển bình thường
+            if game.Players.LocalPlayer.Character.HumanoidRootPart:FindFirstChild("VuKhoa_Velocity_Fix") then
+                game.Players.LocalPlayer.Character.HumanoidRootPart.VuKhoa_Velocity_Fix:Destroy()
+            end
         end
     end
 end)
 
--- LOGIC AUTO CLICK
+-- AUTO CLICK
 task.spawn(function()
     while task.wait(0.1) do
-        if _G.AutoClick and _G.AutoFarmBone then
-            local VirtualUser = game:GetService("VirtualUser")
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton1(Vector2.new(0,0))
-            if _G.FastAttack then
-                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("WeaponAttack")
-            end
+        if _G.AutoClick and _G.AutoFarm then
+            game:GetService("VirtualUser"):CaptureController()
+            game:GetService("VirtualUser"):ClickButton1(Vector2.new(0,0))
         end
     end
 end)
