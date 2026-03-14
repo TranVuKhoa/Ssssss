@@ -18,33 +18,26 @@ function GetQuest()
 end
 
 -- [[ UI ELEMENTS ]] --
-
-FarmSection:NewToggle("Auto Farm Bone", "Tự động nhận quest và đánh quái", function(state)
+FarmSection:NewToggle("Auto Farm Bone", "Tự động bay về đảo và farm", function(state)
     _G.AutoFarmBone = state
 end)
 
-FarmSection:NewToggle("Bring Mob (100% Hit)", "Gom quái sát mặt cực gần", function(state)
+FarmSection:NewToggle("Bring Mob (Safe Mode)", "Gom quái thông minh (Chống chết)", function(state)
     _G.BringMob = state
 end)
 
-FarmSection:NewToggle("Auto Click & Fast Attack", "Tự động vung kiếm liên tục", function(state)
+FarmSection:NewToggle("Auto Click & Fast Attack", "Tự động vung kiếm", function(state)
     _G.AutoClick = state
     _G.FastAttack = state
 end)
 
 local Misc = Window:NewTab("Misc")
 local MiscSection = Misc:NewSection("Utilities")
-
-MiscSection:NewButton("Reset Character", "Tự tử để về spawn", function()
+MiscSection:NewButton("Reset Character", "Tự tử", function()
     game.Players.LocalPlayer.Character:BreakJoints()
 end)
 
-MiscSection:NewKeybind("Ẩn/Hiện UI", "Bấm nút để đóng menu", Enum.KeyCode.RightControl, function()
-	Library:ToggleUI()
-end)
-
 -- [[ LOGIC CHÍNH ]] --
-
 task.spawn(function()
     while task.wait() do
         if _G.AutoFarmBone then
@@ -53,33 +46,50 @@ task.spawn(function()
                 local character = player.Character
                 if not character or not character:FindFirstChild("HumanoidRootPart") then return end
                 
+                local hrp = character.HumanoidRootPart
+                local questPos = CFrame.new(-9515, 164, 5786) -- Tọa độ NPC Quest
+                
+                -- 1. Nếu chưa có nhiệm vụ: Bay về NPC nhận Quest
                 if not player.PlayerGui.Main.Quest.Visible then
-                    -- Bay về nhận Quest
-                    character.HumanoidRootPart.CFrame = CFrame.new(-9515, 164, 5786)
+                    if (hrp.Position - questPos.Position).Magnitude > 50 then
+                        hrp.CFrame = questPos -- Teleport thẳng về NPC
+                    end
                     task.wait(0.5)
                     GetQuest()
                 else
-                    -- Đi tìm quái Reborn Skeleton
+                    -- 2. Đã có nhiệm vụ: Tìm quái Skeleton
+                    local foundMob = false
                     for _, v in pairs(workspace.Enemies:GetChildren()) do
                         if v.Name == "Reborn Skeleton" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                            foundMob = true
                             local mobHRP = v.HumanoidRootPart
                             
-                            -- Giữ khoảng cách an toàn (trên đầu quái)
-                            character.HumanoidRootPart.CFrame = mobHRP.CFrame * CFrame.new(0, 8, 0)
+                            -- Khoảng cách an toàn dựa trên việc có đang đánh hay không
+                            -- Nếu đang đánh: Hút lại 5 studs. Nếu không đánh: Đẩy ra 15 studs
+                            local dist = (_G.AutoClick or _G.FastAttack) and 5 or 15
                             
-                            -- Bring Mob sát mặt
+                            -- Nhân vật lơ lửng trên đầu quái để ổn định
+                            hrp.CFrame = mobHRP.CFrame * CFrame.new(0, 10, 0)
+                            
+                            -- Gom quái (Bring Mob) theo kiểu dìm xuống đất và ngửa mặt
                             if _G.BringMob then
                                 for _, m in pairs(workspace.Enemies:GetChildren()) do
                                     if m.Name == "Reborn Skeleton" and m:FindFirstChild("HumanoidRootPart") then
-                                        m.HumanoidRootPart.CFrame = character.HumanoidRootPart.CFrame * CFrame.new(0, -5, -3)
                                         m.HumanoidRootPart.CanCollide = false
-                                        m.HumanoidRootPart.Size = Vector3.new(20, 20, 20)
                                         m.Humanoid.PlatformStand = true
+                                        -- Đưa quái về trước mặt, dìm xuống đất, ngửa mặt lên trời
+                                        m.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0, -14, -dist) * CFrame.Angles(math.rad(90), 0, 0)
+                                        m.HumanoidRootPart.Size = Vector3.new(20, 20, 20)
                                     end
                                 end
                             end
                             break
                         end
+                    end
+                    
+                    -- Nếu không thấy quái ở gần, bay về bãi quái trung tâm
+                    if not foundMob then
+                        hrp.CFrame = CFrame.new(-9500, 170, 6000) 
                     end
                 end
             end)
@@ -94,7 +104,6 @@ task.spawn(function()
             local VirtualUser = game:GetService("VirtualUser")
             VirtualUser:CaptureController()
             VirtualUser:ClickButton1(Vector2.new(0,0))
-            
             if _G.FastAttack then
                 game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("WeaponAttack")
             end
