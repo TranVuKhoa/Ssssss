@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Quản lý License</title>
+    <style>
+        /* Thiết lập phong cách (CSS) cho trang web */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 400px;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-title {
+            margin-top: 0;
+            color: #333;
+            font-size: 20px;
+            border-bottom: 1px solid #e4e6eb;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box; /* Đảm bảo padding không làm tăng chiều rộng */
+            background-color: #f8f9fa;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #0d6efd;
+            background-color: #fff;
+        }
+
+        .btn-generate {
+            width: 100%;
+            padding: 12px;
+            background-color: #0d6efd;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn-generate:hover {
+            background-color: #0b5ed7;
+        }
+
+        /* Khung hiển thị kết quả Key */
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border: 1px solid #b6d4fe;
+            border-radius: 6px;
+            text-align: center;
+            display: none; /* Ẩn đi khi chưa có key */
+        }
+
+        .result-box span {
+            display: block;
+            font-size: 12px;
+            color: #084298;
+            margin-bottom: 5px;
+        }
+
+        .key-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: #052c65;
+            letter-spacing: 1px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2 class="header-title">Tạo License Mới</h2>
+
+        <div class="form-group">
+            <label for="product">Sản phẩm / Ứng dụng</label>
+            <select id="product" class="form-control">
+                <option value="app_a">Phần mềm Quản lý A</option>
+                <option value="app_b">Công cụ Tiện ích B</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="devices">Số lượng thiết bị (Device)</label>
+            <input type="number" id="devices" class="form-control" value="1" min="1">
+        </div>
+
+        <div class="form-group">
+            <label for="duration">Thời hạn</label>
+            <select id="duration" class="form-control">
+                <option value="1">1 Ngày</option>
+                <option value="7">7 Ngày</option>
+                <option value="30">30 Ngày</option>
+                <option value="365">Trọn đời (1 Năm)</option>
+            </select>
+        </div>
+
+        <button class="btn-generate" onclick="generateKey()">Tạo Key</button>
+
+        <div id="resultBox" class="result-box">
+            <span>Key của bạn đã được tạo:</span>
+            <div id="keyValue" class="key-text"></div>
+        </div>
+    </div>
+
+    <script>
+        function generateKey() {
+            // Lấy dữ liệu người dùng nhập vào (để kiểm tra xem có lấy được không)
+            const product = document.getElementById('product').value;
+            const devices = document.getElementById('devices').value;
+            const duration = document.getElementById('duration').value;
+
+            /* TRONG THỰC TẾ: Ở đây bạn sẽ dùng hàm fetch() để gửi dữ liệu 
+               product, devices, duration lên API Node.js. 
+               Ví dụ: fetch('http://localhost:3000/api/create-key', { ... })
+               Sau khi API trả về thành công thì mới hiển thị Key.
+            */
+
+            // MÔ PHỎNG TRÊN GIAO DIỆN: Tự động tạo một chuỗi ngẫu nhiên định dạng XXXX-XXXX-XXXX
+            const randomString = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+            const newKey = `${randomString()}-${randomString()}-${randomString()}`;
+
+            // Hiển thị kết quả ra màn hình
+            document.getElementById('keyValue').innerText = newKey;
+            document.getElementById('resultBox').style.display = 'block';
+        }
+    </script>
+
+</body>
+</html>
